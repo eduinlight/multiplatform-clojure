@@ -1,0 +1,26 @@
+FROM clojure:temurin-21-tools-deps-bookworm
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl gnupg ca-certificates git \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/apps/mobile
+
+COPY apps/mobile/deps.edn /workspace/apps/mobile/deps.edn
+COPY packages/shared/deps.edn /workspace/packages/shared/deps.edn
+COPY packages/client/deps.edn /workspace/packages/client/deps.edn
+COPY packages/ui/deps.edn /workspace/packages/ui/deps.edn
+RUN mkdir -p /workspace/packages/shared/src /workspace/packages/client/src /workspace/packages/ui/src \
+  && clojure -A:mobile -P
+
+COPY apps/mobile/package.json /workspace/apps/mobile/package.json
+RUN npm install
+
+COPY packages /workspace/packages
+COPY apps/mobile /workspace/apps/mobile
+
+EXPOSE 8081 9632 19000
+
+CMD ["npx", "shadow-cljs", "watch", "app"]

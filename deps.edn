@@ -1,0 +1,12 @@
+{:paths []
+ :deps {app/shared {:local/root "packages/shared"}}
+ :aliases
+ {:api {:extra-deps {app/api {:local/root "apps/api"}}}
+  :shared {:extra-deps {app/shared {:local/root "packages/shared"}}}
+  :ui {:extra-deps {app/ui {:local/root "packages/ui"}}}
+  :outdated {:replace-deps {com.github.liquidz/antq {:mvn/version "2.11.1250"}}
+             :main-opts ["-m" "antq.core"]}
+  :kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
+          :main-opts ["-m" "clj-kondo.main"]}
+  :cljfmt {:replace-deps {dev.weavejester/cljfmt {:mvn/version "0.13.0"}}
+           :main-opts ["-m" "cljfmt.main"]}}}

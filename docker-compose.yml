@@ -1,0 +1,106 @@
+name: ${COMPOSE_PROJECT_NAME:-app}
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-app}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-app}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo-express:
+    image: mongo-express:latest
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8082}:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_ROOT_USERNAME:-app}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASSWORD:-app}
+      ME_CONFIG_BASICAUTH: "false"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8080}:8080"
+      - "${API_NREPL_PORT:-7888}:7888"
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://app:app@mongo:27017/?authSource=admin}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-app}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-604800}
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+    volumes:
+      - ./apps/api:/workspace/apps/api
+      - ./packages:/workspace/packages
+      - maven_cache:/root/.m2
+      - gitlibs_cache:/root/.gitlibs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8280}:8280"
+      - "${WEB_NREPL_PORT:-9630}:9630"
+      - "${SHADOW_HTTP_PORT:-9631}:9631"
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+    volumes:
+      - ./apps/web:/workspace/apps/web
+      - ./packages:/workspace/packages
+      - web_node_modules:/workspace/apps/web/node_modules
+      - maven_cache:/root/.m2
+      - gitlibs_cache:/root/.gitlibs
+
+  mobile:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "${MOBILE_METRO_PORT:-8081}:8081"
+      - "${MOBILE_NREPL_PORT:-9632}:9632"
+      - "${EXPO_DEVTOOLS_PORT:-19000}:19000"
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+      EXPO_NO_TELEMETRY: "1"
+    volumes:
+      - ./apps/mobile:/workspace/apps/mobile
+      - ./packages:/workspace/packages
+      - mobile_node_modules:/workspace/apps/mobile/node_modules
+      - maven_cache:/root/.m2
+      - gitlibs_cache:/root/.gitlibs
+
+volumes:
+  mongo_data:
+  maven_cache:
+  gitlibs_cache:
+  web_node_modules:
+  mobile_node_modules:

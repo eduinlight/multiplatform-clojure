@@ -1,0 +1,16 @@
+{:app.api.db/client
+ {:uri #or [#env MONGODB_URI "mongodb://app:app@localhost:27017/?authSource=admin"]
+  :database #or [#env MONGODB_DATABASE "app"]}
+
+ :app.api.auth.jwt/signer
+ {:secret #or [#env JWT_SECRET "dev-only-secret-change-me"]
+  :ttl-seconds #long #or [#env JWT_TTL_SECONDS "604800"]}
+
+ :app.api.router/routes
+ {:db #ig/ref :app.api.db/client
+  :signer #ig/ref :app.api.auth.jwt/signer}
+
+ :app.api.server/jetty
+ {:handler #ig/ref :app.api.router/routes
+  :port #long #or [#env API_PORT "8080"]
+  :host #or [#env API_HOST "0.0.0.0"]}}

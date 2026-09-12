@@ -1,0 +1,15 @@
+{:deps {:aliases [:mobile]}
+
+ :nrepl {:port 9632}
+ :http {:port 9633 :host "0.0.0.0"}
+
+ :builds
+ {:app
+  {:target :react-native
+   :init-fn app.mobile.core/init
+   :output-dir "app"
+   :dev {:compiler-options {:closure-defines
+                            {app.mobile.core/api-base-url #shadow/env ["API_BASE_URL" :default "http://localhost:8080"]}}}
+   :release {:compiler-options {:optimizations :advanced
+                                :closure-defines
+                                {app.mobile.core/api-base-url #shadow/env ["API_BASE_URL" :default "https://api.example.com"]}}}}}}

@@ -1,0 +1,131 @@
+# multiplatform-clojure
+
+A template for starting Clojure projects that ship to **API, web, desktop, Android and iOS**
+from one monorepo, sharing everything except the view layer.
+
+The whole development environment is dockerized and driven by `make`.
+
+```
+make install
+```
+
+That single command boots MongoDB, mongo-express, the API, the web watcher and the
+mobile bundler, then seeds a demo account.
+
+| Service | URL | Notes |
+|---|---|---|
+| API | http://localhost:8080/api/v1/health | Ring + reitit + Integrant |
+| Web | http://localhost:8280 | shadow-cljs dev server, hot reload |
+| mongo-express | http://localhost:8082 | database browser |
+| API nREPL | `localhost:7888` | `make api-repl` |
+| Web nREPL | `localhost:9630` | `make web-repl` |
+| Mobile nREPL | `localhost:9632` | `make mobile-repl` |
+
+Demo account: `demo@example.com` / `demo12345`
+
+## What is actually shared
+
+The point of the template is that platform-specific code is a thin shell.
+
+```
+packages/
+  shared/    .cljc  schemas, validation, routes, formatting   -> api + web + desktop + mobile
+  client/    .cljs  HTTP client driven by the shared route table -> web + desktop + mobile
+  ui/        .cljs  re-frame db, events, effects, subscriptions  -> web + desktop + mobile
+
+apps/
+  api/       .clj   the only place that talks to MongoDB
+  web/       .cljs  Reagent views (hiccup + DOM)
+  mobile/    .cljs  Reagent views (React Native components)
+  desktop/   rust   Tauri shell that renders the web build verbatim
+```
+
+`apps/web/src/app/web/views.cljs` and `apps/mobile/src/app/mobile/views.cljs` are the
+*only* files that differ in behaviour between platforms. Both call the same
+`app.ui.events` and `app.ui.subs`. Add a feature once in `packages/ui` and it lands on
+every client.
+
+A worked example: `app.shared.format/summarize` computes the "3 of 5 tasks done" label.
+It is a `.cljc` file, so the API can use it in tests, the web renders it in a `<p>`, and
+React Native renders it in a `<Text>` — one implementation, three consumers.
+
+## Requirements
+
+Docker is enough for the API, web and mobile bundler. Native builds need host tooling:
+
+- **Desktop**: Rust toolchain. Linux also needs `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`,
+  `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf`.
+- **Android**: Android SDK + JDK 17.
+- **iOS**: macOS with Xcode.
+
+Metro and the ClojureScript compiler run in Docker; the native compile/link step cannot,
+because it needs the platform SDKs. `make mobile-dev` keeps the bundler in a container and
+`make mobile-ios` / `make mobile-android` drive the host toolchain against it.
+
+## Commands
+
+```
+make help              list every target
+make install           boot the environment and seed a demo account
+make up / down         start / stop containers
+make logs              tail all container logs
+make reinstall         wipe volumes and start over
+
+make api-repl          connect an nREPL to the running api
+make api-test          run the test suite against a throwaway database
+make api-image         build the production api image
+
+make web-dev           web watcher in the foreground
+make web-build         optimized web bundle
+make web-repl          browser-connected cljs repl
+
+make mobile-dev        mobile bundler in the foreground
+make mobile-prebuild   generate native ios/android projects
+make mobile-ios        build and run on ios
+make mobile-android    build and run on android
+
+make desktop-dev       tauri window against the web dev server
+make desktop-bundle    installers for the current host
+
+make lint fmt test     clj-kondo, cljfmt, kaocha
+make rename NAME=acme  rename the template's namespaces
+```
+
+## Desktop strategy
+
+The desktop app is **Tauri v2**, not Electron. `frontendDist` points at
+`apps/web/public`, so the desktop window renders the exact ClojureScript bundle the
+browser gets — no third view implementation, and binaries are a few MB rather than
+~150MB. In development `devUrl` points at the shadow-cljs dev server, so hot reload works
+inside the desktop window too.
+
+Tauri cannot cross-compile all three desktop targets from one machine, so
+`.github/workflows/desktop.yml` builds Linux, macOS and Windows on their own runners.
+
+## Making it yours
+
+```
+make rename NAME=acme
+```
+
+This rewrites the `app.*` namespaces to `acme.*`, moves the source directories, and
+updates the bundle identifiers. Review with `git diff --stat`, then change
+`JWT_SECRET` in `.env` before deploying anything.
+
+## Layout
+
+```
+.
+├── apps
+│   ├── api          Clojure service: Ring, reitit, Integrant, MongoDB
+│   ├── web          ClojureScript SPA: shadow-cljs, Reagent, re-frame
+│   ├── mobile       ClojureScript RN app: shadow-cljs, Expo
+│   └── desktop      Tauri v2 shell around the web build
+├── packages
+│   ├── shared       .cljc used by every target, including the JVM
+│   ├── client       HTTP client built on the shared route table
+│   └── ui           re-frame state, events and subscriptions
+├── scripts          seed and rename helpers
+├── docker-compose.yml
+└── Makefile
+```

@@ -1,0 +1,18 @@
+FROM clojure:temurin-21-tools-deps-bookworm
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl rlwrap \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/apps/api
+
+COPY apps/api/deps.edn /workspace/apps/api/deps.edn
+COPY packages/shared/deps.edn /workspace/packages/shared/deps.edn
+RUN mkdir -p /workspace/packages/shared/src && clojure -A:dev -P
+
+COPY packages /workspace/packages
+COPY apps/api /workspace/apps/api
+
+EXPOSE 8080 7888
+
+CMD ["clojure", "-M:dev", "-m", "dev-main"]
