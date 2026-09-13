@@ -30,7 +30,7 @@ The point of the template is that platform-specific code is a thin shell.
 ```
 packages/
   shared/    .cljc  schemas, validation, routes, formatting   -> api + web + desktop + mobile
-  client/    .cljs  HTTP client driven by the shared route table -> web + desktop + mobile
+  api-sdk/   .cljc  typed API client for the JVM and JavaScript    -> api tests + web + desktop + mobile
   ui/        .cljs  re-frame db, events, effects, subscriptions  -> web + desktop + mobile
 
 apps/
@@ -48,6 +48,61 @@ every client.
 A worked example: `app.shared.format/summarize` computes the "3 of 5 tasks done" label.
 It is a `.cljc` file, so the API can use it in tests, the web renders it in a `<p>`, and
 React Native renders it in a `<Text>` — one implementation, three consumers.
+
+## api-sdk
+
+`packages/api-sdk` is the one way to talk to the API, from any runtime. It is `.cljc`:
+`java.net.http` on the JVM, `fetch` in browsers, React Native, Tauri and Node.
+
+```clojure
+(require '[app.api-sdk.core :as sdk]
+         '[app.shared.result :as result])
+
+(def api (sdk/client {:base-url "http://localhost:8080"}))
+
+(let [session (result/value @(sdk/login api {:email "demo@example.com" :password "demo12345"}))
+      api (sdk/with-token api (:token session))]
+  @(sdk/create-todo api {:title "from the JVM"})
+  (result/value @(sdk/list-todos api)))
+```
+
+On the JVM every call returns a `CompletableFuture` (so `@` works); in ClojureScript it
+returns a `js/Promise`. Either way it **resolves, never rejects**, to an
+`app.shared.result`:
+
+| Outcome | `result/kind` |
+|---|---|
+| 2xx | `result/ok?` is true, body in `result/value` |
+| input fails the shared malli schema (no request sent) | `:invalid` |
+| protected endpoint called without a token (no request sent) | `:unauthorized` |
+| 400 / 401 / 403 / 404 / 409 | `:invalid` `:unauthorized` `:forbidden` `:not-found` `:conflict` |
+| 5xx | `:internal` |
+| connection refused, DNS, timeout | `:network` |
+
+`sdk/error-message` turns any failure into a human-readable string, including
+per-field validation errors (`"email must be a valid email; password must be at least 8
+characters"`), so every client shows the same wording.
+
+Typed functions: `health`, `register`, `login`, `me`, `list-todos`, `create-todo`,
+`update-todo`, `delete-todo`. They are thin wrappers over `(sdk/call client op request)`,
+which reads method, path, auth requirement and request schemas from
+`app.shared.routes/endpoints`. A custom `:transport` function can be passed to
+`sdk/client` for tests or mocks.
+
+In re-frame, `packages/ui` exposes it as an effect:
+
+```clojure
+{:api/call {:op :todo/update
+            :token token
+            :params {:id id}
+            :body {:done true}
+            :on-success [::saved]
+            :on-failure [::failed]}}
+```
+
+The SDK's tests run on both platforms (`make sdk-test`), and
+`apps/api/test/app/api/sdk_contract_test.clj` drives a real server through the SDK so
+the client and API cannot drift apart.
 
 ## Requirements
 
@@ -74,6 +129,7 @@ make reinstall         wipe volumes and start over
 make api-repl          connect an nREPL to the running api
 make api-test          run the test suite against a throwaway database
 make api-image         build the production api image
+make sdk-test          api-sdk tests on the jvm and on node
 
 make web-dev           web watcher in the foreground
 make web-build         optimized web bundle
@@ -123,7 +179,7 @@ updates the bundle identifiers. Review with `git diff --stat`, then change
 │   └── desktop      Tauri v2 shell around the web build
 ├── packages
 │   ├── shared       .cljc used by every target, including the JVM
-│   ├── client       HTTP client built on the shared route table
+│   ├── api-sdk      typed API client, JVM (java.net.http) and JS (fetch)
 │   └── ui           re-frame state, events and subscriptions
 ├── scripts          seed and rename helpers
 ├── docker-compose.yml

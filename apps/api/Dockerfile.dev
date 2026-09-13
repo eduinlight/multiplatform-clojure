@@ -8,7 +8,8 @@ WORKDIR /workspace/apps/api
 
 COPY apps/api/deps.edn /workspace/apps/api/deps.edn
 COPY packages/shared/deps.edn /workspace/packages/shared/deps.edn
-RUN mkdir -p /workspace/packages/shared/src && clojure -A:dev -P
+COPY packages/api-sdk/deps.edn /workspace/packages/api-sdk/deps.edn
+RUN mkdir -p /workspace/packages/shared/src /workspace/packages/api-sdk/src && clojure -A:dev -P
 
 COPY packages /workspace/packages
 COPY apps/api /workspace/apps/api

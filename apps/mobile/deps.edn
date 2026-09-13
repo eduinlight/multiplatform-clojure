@@ -5,7 +5,7 @@
         reagent/reagent {:mvn/version "1.2.0"}
         re-frame/re-frame {:mvn/version "1.4.3"}
         app/shared {:local/root "../../packages/shared"}
-        app/client {:local/root "../../packages/client"}
+        app/api-sdk {:local/root "../../packages/api-sdk"}
         app/ui {:local/root "../../packages/ui"}}
  :aliases
  {:mobile {:extra-paths ["src"]}}}

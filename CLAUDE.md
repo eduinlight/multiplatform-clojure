@@ -9,7 +9,8 @@ Business logic goes in `packages/`, never in an app. Before writing code in
 
 - `packages/shared` — `.cljc`, usable from the JVM API *and* every ClojureScript target.
   Schemas (malli), validation, the route table, formatting, result helpers.
-- `packages/client` — `.cljs`, HTTP calls built from `app.shared.routes`.
+- `packages/api-sdk` — `.cljc`, the only API client. JVM (`java.net.http`) and JS
+  (`fetch`). Typed functions per endpoint, built on `sdk/call` and the shared route table.
 - `packages/ui` — `.cljs`, the entire re-frame layer: db, events, effects, subs.
 
 Only view rendering is allowed to differ per platform:
@@ -26,10 +27,16 @@ The desktop app has no ClojureScript of its own — Tauri renders `apps/web/publ
 - Namespaced keywords for domain data: `:user/email`, `:todo/done`.
 - The API returns those namespaced keywords as-is (`"todo/id"` over the wire); the
   clients read them back as namespaced keywords. Do not rename them at the boundary.
-- New endpoints are declared once in `app.shared.routes/endpoints`, then implemented in
-  `app.api.router`. Clients address endpoints by id, never by string path.
-- Validation happens twice, with the same schema: optimistically in `app.ui.events`
-  before the request, authoritatively in `app.api.handlers` before touching Mongo.
+- New endpoints are declared once in `app.shared.routes/endpoints` with `:method`,
+  `:path`, `:auth?` and optional `:params` / `:body` malli schemas, then implemented in
+  `app.api.router`. Nothing calls the API except through `app.api-sdk.core`.
+- Validation happens twice, with the same schema: in the SDK before the request is sent,
+  and authoritatively in `app.api.handlers` before touching Mongo.
+- SDK calls resolve, never reject, to an `app.shared.result`. Branch on `result/kind`;
+  show failures with `sdk/error-message`. In re-frame use the `:api/call` effect from
+  `app.ui.api` with `:on-success` / `:on-failure` event vectors.
+- In ClojureScript never hand domain maps to JS with a bare `clj->js`: it drops keyword
+  namespaces (`:todo/id` becomes `"id"`). Use `app.api-sdk.json` or pass ids across.
 - `app.shared.result` carries domain failures (`:not-found`, `:conflict`, …);
   `result/status` maps them to HTTP codes. Handlers should not invent status codes.
 - Integrant owns lifecycle. A new stateful component gets an `ig/init-key`, an
@@ -39,12 +46,14 @@ The desktop app has no ClojureScript of its own — Tauri renders `apps/web/publ
 
 1. Schema in `packages/shared/src/app/shared/schema.cljc`.
 2. Endpoint in `packages/shared/src/app/shared/routes.cljc`.
-3. Domain namespace in `apps/api/src/app/api/` returning `result/ok` or `result/err`.
-4. Handler + route in `app.api.handlers` / `app.api.router`.
-5. Events and subs in `packages/ui`.
-6. Views in each app.
-7. Tests in `apps/api/test/` — shared logic is tested on the JVM even though the
-   clients are the main consumers.
+3. Typed function in `packages/api-sdk/src/app/api_sdk/core.cljc`.
+4. Domain namespace in `apps/api/src/app/api/` returning `result/ok` or `result/err`.
+5. Handler + route in `app.api.handlers` / `app.api.router`.
+6. Events and subs (using `:api/call`) in `packages/ui`.
+7. Views in each app.
+8. Tests: API behaviour in `apps/api/test/`, the new call in
+   `app.api.sdk-contract-test` (real server, through the SDK), and SDK edge cases in
+   `packages/api-sdk/test/` (`.cljc`, runs on JVM and Node).
 
 ## Running things
 
@@ -54,6 +63,7 @@ Everything is dockerized; use `make`, not raw `clojure`/`npx` calls.
 make install     boot mongo, mongo-express, api, web, mobile; seed a demo account
 make logs        tail everything
 make api-test    kaocha against a throwaway database
+make sdk-test    api-sdk tests on the jvm and on node
 make lint fmt    clj-kondo and cljfmt
 ```
 

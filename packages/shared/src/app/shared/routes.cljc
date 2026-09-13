@@ -1,22 +1,28 @@
 (ns app.shared.routes
-  (:require [clojure.string :as str]))
+  (:require [app.shared.schema :as schema]
+            [clojure.string :as str]))
 
 (def api-prefix "/api/v1")
 
 (def endpoints
   {:health {:method :get :path "/health"}
-   :auth/register {:method :post :path "/auth/register"}
-   :auth/login {:method :post :path "/auth/login"}
-   :auth/me {:method :get :path "/auth/me"}
-   :todo/list {:method :get :path "/todos"}
-   :todo/create {:method :post :path "/todos"}
-   :todo/update {:method :patch :path "/todos/:id"}
-   :todo/delete {:method :delete :path "/todos/:id"}})
+   :auth/register {:method :post :path "/auth/register" :body schema/Registration}
+   :auth/login {:method :post :path "/auth/login" :body schema/Credentials}
+   :auth/me {:method :get :path "/auth/me" :auth? true}
+   :todo/list {:method :get :path "/todos" :auth? true}
+   :todo/create {:method :post :path "/todos" :auth? true :body schema/NewTodo}
+   :todo/update {:method :patch :path "/todos/:id" :auth? true
+                 :params schema/IdParams :body schema/TodoPatch}
+   :todo/delete {:method :delete :path "/todos/:id" :auth? true
+                 :params schema/IdParams}})
+
+(defn endpoint [id]
+  (get endpoints id))
 
 (defn path-for
   ([id] (path-for id nil))
   ([id params]
-   (let [{:keys [path]} (get endpoints id)]
+   (let [{:keys [path]} (endpoint id)]
      (reduce-kv (fn [p k v]
                   (str/replace p (str ":" (name k)) (str v)))
                 path
@@ -27,4 +33,4 @@
   ([base id params] (str base api-prefix (path-for id params))))
 
 (defn method-for [id]
-  (get-in endpoints [id :method]))
+  (:method (endpoint id)))

@@ -15,7 +15,7 @@ API_BASE_URL ?= http://localhost:$(API_PORT)
 MONGOSH := $(COMPOSE) exec -T mongo mongosh --quiet -u $(MONGO_ROOT_USERNAME) -p $(MONGO_ROOT_PASSWORD) --authenticationDatabase admin
 
 .PHONY: help env install uninstall reinstall up down restart logs ps \
-	api-dev api-repl api-test api-build api-image \
+	api-dev api-repl api-test api-build api-image sdk-test \
 	web-dev web-repl web-build \
 	mobile-dev mobile-repl mobile-prebuild mobile-android mobile-ios mobile-build \
 	desktop-dev desktop-build desktop-bundle \
@@ -78,6 +78,12 @@ api-build: ## build the api uberjar classpath locally
 api-image: ## build the production api image
 	docker build -f apps/api/Dockerfile -t app-api:latest .
 
+sdk-test: env ## run api-sdk tests on the jvm and on node
+	$(COMPOSE) run --rm --no-deps -w /workspace/packages/api-sdk web sh -c '\
+		clojure -M:test && \
+		clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test && \
+		node target/node-test.js'
+
 web-dev: env ## run the shadow-cljs watcher for web
 	$(COMPOSE) up --build web
 
@@ -136,10 +142,10 @@ fmt: ## format all clojure sources
 fmt-check: ## verify formatting
 	clojure -M:cljfmt check apps packages deps.edn
 
-test: api-test ## run the full test suite
+test: sdk-test api-test ## run the full test suite
 
 outdated: ## report outdated dependencies
-	clojure -M:outdated --directory=apps/api --directory=apps/web --directory=apps/mobile --directory=packages/shared --directory=packages/ui --directory=packages/client
+	clojure -M:outdated --directory=apps/api --directory=apps/web --directory=apps/mobile --directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
 
 clean: ## remove build artifacts
 	rm -rf apps/web/public/js apps/mobile/app apps/desktop/src-tauri/target

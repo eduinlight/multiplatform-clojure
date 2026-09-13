@@ -10,9 +10,9 @@ WORKDIR /workspace/apps/web
 
 COPY apps/web/deps.edn /workspace/apps/web/deps.edn
 COPY packages/shared/deps.edn /workspace/packages/shared/deps.edn
-COPY packages/client/deps.edn /workspace/packages/client/deps.edn
+COPY packages/api-sdk/deps.edn /workspace/packages/api-sdk/deps.edn
 COPY packages/ui/deps.edn /workspace/packages/ui/deps.edn
-RUN mkdir -p /workspace/packages/shared/src /workspace/packages/client/src /workspace/packages/ui/src \
+RUN mkdir -p /workspace/packages/shared/src /workspace/packages/api-sdk/src /workspace/packages/ui/src \
   && clojure -A:web -P
 
 COPY apps/web/package.json /workspace/apps/web/package.json

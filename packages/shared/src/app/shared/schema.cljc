@@ -18,6 +18,10 @@
 (def Id
   [:re {:error/message "must be a 24 character hex id"} #"^[0-9a-fA-F]{24}$"])
 
+(def IdParams
+  [:map
+   [:id Id]])
+
 (def User
   [:map
    [:user/id Id]

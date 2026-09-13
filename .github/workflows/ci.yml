@@ -54,6 +54,43 @@ jobs:
           MONGODB_URI: mongodb://app:app@localhost:27017/?authSource=admin
         run: clojure -M:test
 
+  api-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/api-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: DeLaGuardo/setup-clojure@v13
+        with:
+          cli: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-sdk-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-sdk-
+
+      - name: jvm tests
+        run: clojure -M:test
+
+      - name: node tests
+        run: |
+          clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test
+          node target/node-test.js
+
   cljs:
     runs-on: ubuntu-latest
     strategy:

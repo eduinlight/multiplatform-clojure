@@ -2,7 +2,7 @@
   (:require ["expo-secure-store" :as secure-store]
             ["react-native" :as rn]
             [app.mobile.views :as views]
-            [app.ui.config :as config]
+            [app.ui.api :as api]
             [app.ui.events :as events]
             [app.ui.storage :as storage]
             [re-frame.core :as rf]
@@ -28,7 +28,7 @@
   (rf/clear-subscription-cache!))
 
 (defn init []
-  (config/install! {:base-url api-base-url})
+  (api/install! {:base-url api-base-url})
   (storage/install! (secure-store-backend))
   (-> (.getItemAsync secure-store events/token-key)
       (.then (fn [token]

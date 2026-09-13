@@ -1,5 +1,5 @@
 (ns app.web.core
-  (:require [app.ui.config :as config]
+  (:require [app.ui.api :as api]
             [app.ui.events :as events]
             [app.ui.storage :as storage]
             [app.web.views :as views]
@@ -26,7 +26,7 @@
   (mount!))
 
 (defn init []
-  (config/install! {:base-url api-base-url})
+  (api/install! {:base-url api-base-url})
   (storage/install! (local-storage-backend))
   (rf/dispatch-sync [::events/boot])
   (mount!))

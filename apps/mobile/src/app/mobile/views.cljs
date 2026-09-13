@@ -116,10 +116,11 @@
      (when error [text {:style (:error styles)} error])
      (if (empty? todos)
        [text {:style (:muted styles)} "Nothing here yet."]
-       [flat-list {:data (clj->js todos)
-                   :keyExtractor (fn [item] (str (aget item "todo/id")))
-                   :renderItem (fn [^js row]
-                                 (r/as-element [todo-row (js->clj (.-item row) :keywordize-keys true)]))}])]))
+       (let [by-id (into {} (map (juxt :todo/id identity)) todos)]
+         [flat-list {:data (to-array (map :todo/id todos))
+                     :keyExtractor (fn [id] id)
+                     :renderItem (fn [^js row]
+                                   (r/as-element [todo-row (get by-id (.-item row))]))}]))]))
 
 (defn app []
   (let [authenticated? @(rf/subscribe [::subs/authenticated?])]
