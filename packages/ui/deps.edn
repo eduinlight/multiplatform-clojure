@@ -1,5 +1,0 @@
-{:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.12.6"}
-        re-frame/re-frame {:mvn/version "1.4.7"}
-        app/shared {:local/root "../shared"}
-        app/api-sdk {:local/root "../api-sdk"}}}

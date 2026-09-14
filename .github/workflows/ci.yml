@@ -91,6 +91,41 @@ jobs:
           clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test
           node target/node-test.js
 
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: DeLaGuardo/setup-clojure@v13
+        with:
+          cli: latest
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-app-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-app-
+
+      - name: node tests
+        run: |
+          npm install --no-audit --no-fund
+          clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test
+          node target/node-test.js
+
   cljs:
     runs-on: ubuntu-latest
     strategy:

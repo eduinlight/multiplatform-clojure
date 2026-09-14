@@ -1,49 +1,61 @@
-(ns app.ui.events
+(ns app.app.events
   (:require [app.api-sdk.core :as sdk]
-            [app.ui.api]
-            [app.ui.db :as db]
-            [app.ui.storage]
+            [app.app.api]
+            [app.app.db :as db]
+            [app.app.storage]
             [clojure.string :as str]
             [re-frame.core :as rf]))
 
 (def token-key "app.auth.token")
 
+(rf/reg-event-db
+ ::initialize
+ (fn [_ _]
+   db/default-db))
+
 (rf/reg-event-fx
  ::boot
- [(rf/inject-cofx :storage/get {:key token-key})]
- (fn [{:keys [storage/value]} _]
-   (if value
-     {:db (-> db/default-db
-              (assoc-in [:auth :token] value)
+ (fn [{:keys [db]} [_ token]]
+   (if (str/blank? token)
+     {:db (assoc-in db [:auth :status] :anonymous)}
+     {:db (-> db
+              (assoc-in [:auth :token] token)
               (assoc-in [:auth :status] :restoring))
       :api/call {:op :auth/me
-                 :token value
+                 :token token
                  :on-success [::me-success]
-                 :on-failure [::logout]}}
-     {:db db/default-db})))
+                 :on-failure [::logout]}})))
 
 (rf/reg-event-fx
  ::me-success
  (fn [{:keys [db]} [_ user]]
    {:db (-> db
             (assoc-in [:auth :status] :authenticated)
-            (assoc-in [:auth :user] user)
-            (assoc :route :todos))
+            (assoc-in [:auth :user] user))
     :fx [[:dispatch [::load-todos]]]}))
 
 (rf/reg-event-db
- ::navigate
- (fn [db [_ route]]
-   (assoc db :route route)))
+ ::set-auth-field
+ (fn [db [_ field value]]
+   (assoc-in db [:auth-form field] value)))
+
+(rf/reg-event-db
+ ::toggle-auth-mode
+ (fn [db _]
+   (-> db
+       (update-in [:auth-form :mode] {:login :register :register :login})
+       (assoc-in [:auth :error] nil))))
 
 (defn- authenticate [db op body]
-  {:db (-> db
-           (assoc-in [:auth :status] :pending)
-           (assoc-in [:auth :error] nil))
-   :api/call {:op op
-              :body body
-              :on-success [::auth-success]
-              :on-failure [::auth-failure]}})
+  (if (= :pending (get-in db [:auth :status]))
+    {:db db}
+    {:db (-> db
+             (assoc-in [:auth :status] :pending)
+             (assoc-in [:auth :error] nil))
+     :api/call {:op op
+                :body body
+                :on-success [::auth-success]
+                :on-failure [::auth-failure]}}))
 
 (rf/reg-event-fx
  ::login
@@ -56,6 +68,14 @@
    (authenticate db :auth/register registration)))
 
 (rf/reg-event-fx
+ ::submit-auth
+ (fn [{:keys [db]} _]
+   (let [{:keys [mode] :as form} (:auth-form db)]
+     (if (= :register mode)
+       (authenticate db :auth/register (select-keys form [:email :password :name]))
+       (authenticate db :auth/login (select-keys form [:email :password]))))))
+
+(rf/reg-event-fx
  ::auth-success
  (fn [{:keys [db]} [_ {:keys [token user]}]]
    {:db (-> db
@@ -63,7 +83,7 @@
             (assoc-in [:auth :token] token)
             (assoc-in [:auth :user] user)
             (assoc-in [:auth :error] nil)
-            (assoc :route :todos))
+            (assoc :auth-form db/empty-auth-form))
     :storage/set {:key token-key :value token}
     :fx [[:dispatch [::load-todos]]]}))
 
@@ -77,7 +97,7 @@
 (rf/reg-event-fx
  ::logout
  (fn [_ _]
-   {:db db/default-db
+   {:db (assoc-in db/default-db [:auth :status] :anonymous)
     :storage/remove {:key token-key}}))
 
 (defn- todo-call [db op request]
@@ -86,6 +106,9 @@
           :on-success [::load-todos]
           :on-failure [::todos-failed]}
          request))
+
+(defn- find-todo [db id]
+  (some #(when (= id (:todo/id %)) %) (get-in db [:todos :items])))
 
 (rf/reg-event-fx
  ::load-todos
@@ -124,8 +147,10 @@
 
 (rf/reg-event-fx
  ::toggle-todo
- (fn [{:keys [db]} [_ {:todo/keys [id done]}]]
-   {:api/call (todo-call db :todo/update {:params {:id id} :body {:done (not done)}})}))
+ (fn [{:keys [db]} [_ id]]
+   (if-let [{:todo/keys [done]} (find-todo db id)]
+     {:api/call (todo-call db :todo/update {:params {:id id} :body {:done (not done)}})}
+     {:db db})))
 
 (rf/reg-event-fx
  ::delete-todo

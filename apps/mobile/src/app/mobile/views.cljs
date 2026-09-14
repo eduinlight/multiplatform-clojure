@@ -1,8 +1,8 @@
 (ns app.mobile.views
   (:require ["react-native" :as rn]
             ["react-native-safe-area-context" :as safe-area-context]
-            [app.ui.events :as events]
-            [app.ui.subs :as subs]
+            [app.app.events :as events]
+            [app.app.subs :as subs]
             [re-frame.core :as rf]
             [reagent.core :as r]))
 
@@ -20,6 +20,7 @@
           :borderWidth 1 :borderColor "#262b36"}
    :title {:color "#e8eaf0" :fontSize 20 :fontWeight "600" :marginBottom 4}
    :subtitle {:color "#9aa3b5" :fontSize 13 :marginBottom 16}
+   :spacer {:height 16}
    :label {:color "#9aa3b5" :fontSize 12 :marginBottom 6 :textTransform "uppercase"}
    :input {:backgroundColor "#11141a" :borderWidth 1 :borderColor "#262b36"
            :borderRadius 9 :paddingHorizontal 12 :paddingVertical 10
@@ -36,94 +37,87 @@
    :todo-done {:color "#9aa3b5" :flex 1 :textDecorationLine "line-through"}
    :muted {:color "#9aa3b5" :textAlign "center" :marginTop 16}})
 
-(defn- field [{:keys [label value on-change secure? placeholder keyboard]}]
+(defn- change! [event]
+  (rf/dispatch-sync event)
+  (r/flush))
+
+(def ^:private keyboard
+  {:text {}
+   :email {:keyboardType "email-address"}
+   :password {:secureTextEntry true}})
+
+(defn- field [{:keys [id kind label placeholder value]}]
   [view
    [text {:style (:label styles)} label]
-   [text-input {:style (:input styles)
-                :value value
-                :onChangeText on-change
-                :secureTextEntry (boolean secure?)
-                :autoCapitalize "none"
-                :autoCorrect false
-                :keyboardType (or keyboard "default")
-                :placeholder placeholder
-                :placeholderTextColor "#5a6478"}]])
+   [text-input (merge {:style (:input styles)
+                       :value value
+                       :onChangeText #(change! [::events/set-auth-field id %])
+                       :autoCapitalize "none"
+                       :autoCorrect false
+                       :placeholder placeholder
+                       :placeholderTextColor "#5a6478"}
+                      (keyboard kind))]])
+
+(defn loading-screen []
+  (let [{:keys [label]} @(rf/subscribe [::subs/loading-screen])]
+    [view {:style (:card styles)}
+     [text {:style (:muted styles)} label]]))
 
 (defn auth-screen []
-  (let [mode (r/atom :login)
-        form (r/atom {:email "" :password "" :name ""})]
-    (fn []
-      (let [pending? @(rf/subscribe [::subs/auth-pending?])
-            error @(rf/subscribe [::subs/auth-error])
-            register? (= :register @mode)]
-        [view {:style (:card styles)}
-         [text {:style (:title styles)} (if register? "Create account" "Welcome back")]
-         [text {:style (:subtitle styles)} "Same logic, native shell."]
-         (when register?
-           [field {:label "Name"
-                   :value (:name @form)
-                   :placeholder "Ada Lovelace"
-                   :on-change #(swap! form assoc :name %)}])
-         [field {:label "Email"
-                 :value (:email @form)
-                 :keyboard "email-address"
-                 :placeholder "you@example.com"
-                 :on-change #(swap! form assoc :email %)}]
-         [field {:label "Password"
-                 :value (:password @form)
-                 :secure? true
-                 :placeholder "at least 8 characters"
-                 :on-change #(swap! form assoc :password %)}]
-         (when error [text {:style (:error styles)} error])
-         [touchable {:style (:button styles)
-                     :disabled pending?
-                     :onPress #(if register?
-                                 (rf/dispatch [::events/register @form])
-                                 (rf/dispatch [::events/login (select-keys @form [:email :password])]))}
-          [text {:style (:button-text styles)}
-           (cond pending? "Working…" register? "Sign up" :else "Sign in")]]
-         [touchable {:onPress #(swap! mode (fn [m] (if (= :login m) :register :login)))}
-          [text {:style (:link styles)}
-           (if register? "I already have an account" "I need an account")]]]))))
+  (let [{:keys [title fields error submitting? submit-label switch-label]}
+        @(rf/subscribe [::subs/auth-screen])]
+    [view {:style (:card styles)}
+     [text {:style (:title styles)} title]
+     [view {:style (:spacer styles)}]
+     (for [f fields] ^{:key (:id f)} [field f])
+     (when error [text {:style (:error styles)} error])
+     [touchable {:style (:button styles)
+                 :disabled submitting?
+                 :onPress #(rf/dispatch [::events/submit-auth])}
+      [text {:style (:button-text styles)} submit-label]]
+     [touchable {:onPress #(rf/dispatch [::events/toggle-auth-mode])}
+      [text {:style (:link styles)} switch-label]]]))
 
-(defn- todo-row [{:todo/keys [id title done] :as todo}]
+(defn- todo-row [{:keys [id title done? delete-label]}]
   [view {:style (:todo styles)}
-   [switch-input {:value done
-                  :onValueChange #(rf/dispatch [::events/toggle-todo todo])}]
-   [text {:style (if done (:todo-done styles) (:todo-title styles))} title]
-   [touchable {:onPress #(rf/dispatch [::events/delete-todo id])}
+   [switch-input {:value done?
+                  :onValueChange #(rf/dispatch [::events/toggle-todo id])}]
+   [text {:style (if done? (:todo-done styles) (:todo-title styles))} title]
+   [touchable {:onPress #(rf/dispatch [::events/delete-todo id])
+               :accessibilityLabel delete-label}
     [text {:style {:color "#9aa3b5" :fontSize 20 :paddingHorizontal 6}} "×"]]])
 
-(defn todo-screen []
-  (let [todos @(rf/subscribe [::subs/todos])
-        draft @(rf/subscribe [::subs/draft])
-        error @(rf/subscribe [::subs/todos-error])
-        summary @(rf/subscribe [::subs/summary])
-        user @(rf/subscribe [::subs/current-user])]
+(defn todos-screen []
+  (let [{:keys [user-name summary sign-out-label draft draft-placeholder
+                error list-state loading-label empty-label items]}
+        @(rf/subscribe [::subs/todos-screen])]
     [view {:style (:card styles)}
      [view {:style (:row styles)}
       [view {:style {:flex 1}}
-       [text {:style (:title styles)} (:user/name user)]
-       [text {:style (:subtitle styles)} (:label summary)]]
+       [text {:style (:title styles)} user-name]
+       [text {:style (:subtitle styles)} summary]]
       [touchable {:onPress #(rf/dispatch [::events/logout])}
-       [text {:style {:color "#9aa3b5"}} "Sign out"]]]
+       [text {:style {:color "#9aa3b5"}} sign-out-label]]]
      [text-input {:style (:input styles)
                   :value draft
-                  :placeholder "What needs doing?"
+                  :placeholder draft-placeholder
                   :placeholderTextColor "#5a6478"
-                  :onChangeText #(rf/dispatch [::events/set-draft %])
+                  :onChangeText #(change! [::events/set-draft %])
                   :onSubmitEditing #(rf/dispatch [::events/create-todo])
                   :returnKeyType "done"}]
      (when error [text {:style (:error styles)} error])
-     (if (empty? todos)
-       [text {:style (:muted styles)} "Nothing here yet."]
-       (let [by-id (into {} (map (juxt :todo/id identity)) todos)]
-         [flat-list {:data (to-array (map :todo/id todos))
+     (case list-state
+       :loading [text {:style (:muted styles)} loading-label]
+       :empty [text {:style (:muted styles)} empty-label]
+       (let [by-id (into {} (map (juxt :id identity)) items)]
+         [flat-list {:data (to-array (map :id items))
                      :keyExtractor (fn [id] id)
                      :renderItem (fn [^js row]
                                    (r/as-element [todo-row (get by-id (.-item row))]))}]))]))
 
 (defn app []
-  (let [authenticated? @(rf/subscribe [::subs/authenticated?])]
-    [safe-area {:style (:screen styles)}
-     (if authenticated? [todo-screen] [auth-screen])]))
+  [safe-area {:style (:screen styles)}
+   (case @(rf/subscribe [::subs/screen])
+     :loading [loading-screen]
+     :todos [todos-screen]
+     [auth-screen])])

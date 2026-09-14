@@ -1,4 +1,4 @@
-(ns app.ui.api
+(ns app.app.api
   (:require [app.api-sdk.core :as sdk]
             [app.shared.result :as result]
             [re-frame.core :as rf]))

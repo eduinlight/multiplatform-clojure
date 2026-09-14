@@ -11,13 +11,23 @@ Business logic goes in `packages/`, never in an app. Before writing code in
   Schemas (malli), validation, the route table, formatting, result helpers.
 - `packages/api-sdk` — `.cljc`, the only API client. JVM (`java.net.http`) and JS
   (`fetch`). Typed functions per endpoint, built on `sdk/call` and the shared route table.
-- `packages/ui` — `.cljs`, the entire re-frame layer: db, events, effects, subs.
+- `packages/app` — `.cljs`, the client application shared by web, desktop and mobile:
+  db, events, effects, subscriptions, screen view models, user-facing copy, startup.
 
-Only view rendering is allowed to differ per platform:
-`apps/web/src/app/web/views.cljs` (hiccup/DOM) and
-`apps/mobile/src/app/mobile/views.cljs` (React Native components).
-Both consume the same `app.ui.events` and `app.ui.subs`. If you find yourself writing
-an event handler or subscription inside an app, move it to `packages/ui`.
+Web and mobile differ only in the components they render with. An app may contain:
+components and styles (`views.cljs`), its storage backend, and mounting its root
+(`core.cljs` calling `app.app.core/start!`). Nothing else. In particular a view must not:
+
+- hold state (no `r/atom` form state — dispatch `::events/set-auth-field` and friends),
+- contain user-facing text (it comes from the screen subscription, defined in
+  `app.app.copy`),
+- decide behaviour (labels, enabled/disabled, which screen, what to submit).
+
+Each screen has one view-model subscription (`::subs/auth-screen`,
+`::subs/todos-screen`, …) returning everything the view renders; `::subs/screen` picks the
+screen. Events take ids, not entity maps, and look the entity up in the db. Controlled
+text inputs dispatch with `rf/dispatch-sync`; on React Native also call `r/flush` right
+after (`change!` in the mobile views), otherwise fast typing drops characters.
 
 The desktop app has no ClojureScript of its own — Tauri renders `apps/web/public`.
 
@@ -34,7 +44,7 @@ The desktop app has no ClojureScript of its own — Tauri renders `apps/web/publ
   and authoritatively in `app.api.handlers` before touching Mongo.
 - SDK calls resolve, never reject, to an `app.shared.result`. Branch on `result/kind`;
   show failures with `sdk/error-message`. In re-frame use the `:api/call` effect from
-  `app.ui.api` with `:on-success` / `:on-failure` event vectors.
+  `app.app.api` with `:on-success` / `:on-failure` event vectors.
 - In ClojureScript never hand domain maps to JS with a bare `clj->js`: it drops keyword
   namespaces (`:todo/id` becomes `"id"`). Use `app.api-sdk.json` or pass ids across.
 - `app.shared.result` carries domain failures (`:not-found`, `:conflict`, …);
@@ -49,8 +59,9 @@ The desktop app has no ClojureScript of its own — Tauri renders `apps/web/publ
 3. Typed function in `packages/api-sdk/src/app/api_sdk/core.cljc`.
 4. Domain namespace in `apps/api/src/app/api/` returning `result/ok` or `result/err`.
 5. Handler + route in `app.api.handlers` / `app.api.router`.
-6. Events and subs (using `:api/call`) in `packages/ui`.
-7. Views in each app.
+6. Events, a view-model subscription and copy in `packages/app`, with a flow test in
+   `packages/app/test/` (headless, against the fake API in `app.app.test-support`).
+7. Components in each app that render the view model.
 8. Tests: API behaviour in `apps/api/test/`, the new call in
    `app.api.sdk-contract-test` (real server, through the SDK), and SDK edge cases in
    `packages/api-sdk/test/` (`.cljc`, runs on JVM and Node).
@@ -64,6 +75,7 @@ make install     boot mongo, mongo-express, api, web, mobile; seed a demo accoun
 make logs        tail everything
 make api-test    kaocha against a throwaway database
 make sdk-test    api-sdk tests on the jvm and on node
+make app-test    shared app logic flow tests on node
 make lint fmt    clj-kondo and cljfmt
 make outdated    dependency report; make upgrade applies safe upgrades
 ```

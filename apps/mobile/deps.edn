@@ -6,6 +6,6 @@
         re-frame/re-frame {:mvn/version "1.4.7"}
         app/shared {:local/root "../../packages/shared"}
         app/api-sdk {:local/root "../../packages/api-sdk"}
-        app/ui {:local/root "../../packages/ui"}}
+        app/app {:local/root "../../packages/app"}}
  :aliases
  {:mobile {:extra-paths ["src"]}}}

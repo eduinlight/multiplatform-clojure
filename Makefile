@@ -15,7 +15,7 @@ API_BASE_URL ?= http://localhost:$(API_PORT)
 MONGOSH := $(COMPOSE) exec -T mongo mongosh --quiet -u $(MONGO_ROOT_USERNAME) -p $(MONGO_ROOT_PASSWORD) --authenticationDatabase admin
 
 .PHONY: help env install uninstall reinstall up down restart logs ps \
-	api-dev api-repl api-test api-build api-image sdk-test \
+	api-dev api-repl api-test api-build api-image sdk-test app-test \
 	web-dev web-repl web-build \
 	mobile-dev mobile-repl mobile-prebuild mobile-android mobile-ios mobile-build \
 	desktop-dev desktop-build desktop-bundle \
@@ -84,6 +84,12 @@ sdk-test: env ## run api-sdk tests on the jvm and on node
 		clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test && \
 		node target/node-test.js'
 
+app-test: env ## run the shared app logic tests on node
+	$(COMPOSE) run --rm --no-deps -w /workspace/packages/app web sh -c '\
+		npm install --no-audit --no-fund && \
+		clojure -M:cljs-test -m shadow.cljs.devtools.cli compile test && \
+		node target/node-test.js'
+
 web-dev: env ## run the shadow-cljs watcher for web
 	$(COMPOSE) up --build web
 
@@ -142,12 +148,12 @@ fmt: ## format all clojure sources
 fmt-check: ## verify formatting
 	clojure -M:cljfmt check apps packages deps.edn
 
-test: sdk-test api-test ## run the full test suite
+test: sdk-test app-test api-test ## run the full test suite
 
 outdated: ## report outdated clojure, npm, expo, cargo and github actions versions
 	-clojure -M:outdated --skip=pom --exclude=dtolnay/rust-toolchain \
 		--directory=. --directory=apps/api --directory=apps/web --directory=apps/mobile \
-		--directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
+		--directory=packages/shared --directory=packages/app --directory=packages/api-sdk
 	-cd apps/web && npm outdated
 	-cd apps/desktop && npm outdated
 	-cd apps/mobile && npx expo install --check
@@ -156,7 +162,7 @@ outdated: ## report outdated clojure, npm, expo, cargo and github actions versio
 upgrade: ## upgrade clojure deps and actions, align expo, refresh cargo lock
 	clojure -M:outdated --skip=pom --exclude=dtolnay/rust-toolchain --upgrade --force \
 		--directory=. --directory=apps/api --directory=apps/web --directory=apps/mobile \
-		--directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
+		--directory=packages/shared --directory=packages/app --directory=packages/api-sdk
 	cd apps/mobile && npx expo install --fix
 	cd apps/desktop/src-tauri && cargo update
 	@echo ""

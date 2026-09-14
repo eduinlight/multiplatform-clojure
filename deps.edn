@@ -4,7 +4,7 @@
  {:api {:extra-deps {app/api {:local/root "apps/api"}}}
   :shared {:extra-deps {app/shared {:local/root "packages/shared"}}}
   :api-sdk {:extra-deps {app/api-sdk {:local/root "packages/api-sdk"}}}
-  :ui {:extra-deps {app/ui {:local/root "packages/ui"}}}
+  :app {:extra-deps {app/app {:local/root "packages/app"}}}
   :outdated {:replace-deps {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
              :main-opts ["-m" "antq.core"]}
   :kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}

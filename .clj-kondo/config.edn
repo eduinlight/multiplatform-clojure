@@ -2,7 +2,8 @@
  {user {:linters {:unused-namespace {:level :off}}}
   app.api.main {:linters {:unused-namespace {:level :off}}}
   app.api.fixtures {:linters {:unused-namespace {:level :off}}}
-  app.ui.events {:linters {:unused-namespace {:level :off}}}}
+  app.app.events {:linters {:unused-namespace {:level :off}}}
+  app.app.core {:linters {:unused-namespace {:level :off}}}}
 
  :lint-as {reagent.core/with-let clojure.core/let}
 

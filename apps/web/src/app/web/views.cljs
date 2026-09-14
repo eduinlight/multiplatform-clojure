@@ -1,102 +1,78 @@
 (ns app.web.views
-  (:require [app.ui.events :as events]
-            [app.ui.subs :as subs]
-            [reagent.core :as r]
+  (:require [app.app.events :as events]
+            [app.app.subs :as subs]
             [re-frame.core :as rf]))
 
-(defn- field [{:keys [label type value on-change placeholder]}]
+(def ^:private input-type
+  {:text "text" :email "email" :password "password"})
+
+(defn- on-submit [event]
+  (fn [e]
+    (.preventDefault e)
+    (rf/dispatch event)))
+
+(defn- field [{:keys [id kind label placeholder value]}]
   [:label.field
    [:span.field-label label]
    [:input.field-input
-    {:type (or type "text")
+    {:type (input-type kind)
      :value value
      :placeholder placeholder
-     :on-change #(on-change (.. % -target -value))}]])
+     :on-change #(rf/dispatch-sync [::events/set-auth-field id (.. % -target -value)])}]])
 
-(defn auth-panel []
-  (let [mode (r/atom :login)
-        form (r/atom {:email "" :password "" :name ""})]
-    (fn []
-      (let [pending? @(rf/subscribe [::subs/auth-pending?])
-            error @(rf/subscribe [::subs/auth-error])
-            register? (= :register @mode)
-            submit (fn []
-                     (if register?
-                       (rf/dispatch [::events/register @form])
-                       (rf/dispatch [::events/login (select-keys @form [:email :password])])))]
-        [:div.card.auth
-         [:h1.title (if register? "Create account" "Welcome back")]
-         [:form.form
-          {:on-submit (fn [e] (.preventDefault e) (submit))}
-          (when register?
-            [field {:label "Name"
-                    :value (:name @form)
-                    :placeholder "Ada Lovelace"
-                    :on-change #(swap! form assoc :name %)}])
-          [field {:label "Email"
-                  :type "email"
-                  :value (:email @form)
-                  :placeholder "you@example.com"
-                  :on-change #(swap! form assoc :email %)}]
-          [field {:label "Password"
-                  :type "password"
-                  :value (:password @form)
-                  :placeholder "at least 8 characters"
-                  :on-change #(swap! form assoc :password %)}]
-          (when error [:p.error error])
-          [:button.btn.btn-primary
-           {:type "submit" :disabled pending?}
-           (cond
-             pending? "Working…"
-             register? "Sign up"
-             :else "Sign in")]]
-         [:button.btn.btn-link
-          {:on-click #(swap! mode (fn [m] (if (= :login m) :register :login)))}
-          (if register? "I already have an account" "I need an account")]]))))
+(defn loading-screen []
+  (let [{:keys [label]} @(rf/subscribe [::subs/loading-screen])]
+    [:div.card [:p.muted label]]))
 
-(defn- todo-row [{:todo/keys [id title done] :as todo}]
-  [:li.todo {:class (when done "todo-done")}
+(defn auth-screen []
+  (let [{:keys [title fields error submitting? submit-label switch-label]}
+        @(rf/subscribe [::subs/auth-screen])]
+    [:div.card.auth
+     [:h1.title title]
+     [:form.form {:on-submit (on-submit [::events/submit-auth])}
+      (for [f fields] ^{:key (:id f)} [field f])
+      (when error [:p.error error])
+      [:button.btn.btn-primary {:type "submit" :disabled submitting?} submit-label]]
+     [:button.btn.btn-link {:on-click #(rf/dispatch [::events/toggle-auth-mode])} switch-label]]))
+
+(defn- todo-row [{:keys [id title done? delete-label]}]
+  [:li.todo {:class (when done? "todo-done")}
    [:label.todo-main
     [:input {:type "checkbox"
-             :checked done
-             :on-change #(rf/dispatch [::events/toggle-todo todo])}]
+             :checked done?
+             :on-change #(rf/dispatch [::events/toggle-todo id])}]
     [:span.todo-title title]]
    [:button.btn.btn-ghost
     {:on-click #(rf/dispatch [::events/delete-todo id])
-     :aria-label (str "Delete " title)}
+     :aria-label delete-label}
     "×"]])
 
-(defn todo-panel []
-  (let [todos @(rf/subscribe [::subs/todos])
-        draft @(rf/subscribe [::subs/draft])
-        loading? @(rf/subscribe [::subs/todos-loading?])
-        error @(rf/subscribe [::subs/todos-error])
-        summary @(rf/subscribe [::subs/summary])
-        user @(rf/subscribe [::subs/current-user])
-        initials @(rf/subscribe [::subs/user-initials])]
+(defn todos-screen []
+  (let [{:keys [user-name initials summary sign-out-label draft draft-placeholder add-label
+                error list-state loading-label empty-label items]}
+        @(rf/subscribe [::subs/todos-screen])]
     [:div.card.todos
      [:header.todo-header
       [:div.avatar initials]
       [:div
-       [:h1.title (:user/name user)]
-       [:p.subtitle (:label summary)]]
-      [:button.btn.btn-ghost {:on-click #(rf/dispatch [::events/logout])} "Sign out"]]
-     [:form.form.row
-      {:on-submit (fn [e] (.preventDefault e) (rf/dispatch [::events/create-todo]))}
+       [:h1.title user-name]
+       [:p.subtitle summary]]
+      [:button.btn.btn-ghost {:on-click #(rf/dispatch [::events/logout])} sign-out-label]]
+     [:form.form.row {:on-submit (on-submit [::events/create-todo])}
       [:input.field-input
        {:value draft
-        :placeholder "What needs doing?"
-        :on-change #(rf/dispatch [::events/set-draft (.. % -target -value)])}]
-      [:button.btn.btn-primary {:type "submit"} "Add"]]
+        :placeholder draft-placeholder
+        :on-change #(rf/dispatch-sync [::events/set-draft (.. % -target -value)])}]
+      [:button.btn.btn-primary {:type "submit"} add-label]]
      (when error [:p.error error])
-     (cond
-       (and loading? (empty? todos)) [:p.muted "Loading…"]
-       (empty? todos) [:p.muted "Nothing here yet."]
-       :else [:ul.todo-list (for [t todos] ^{:key (:todo/id t)} [todo-row t])])]))
+     (case list-state
+       :loading [:p.muted loading-label]
+       :empty [:p.muted empty-label]
+       [:ul.todo-list (for [item items] ^{:key (:id item)} [todo-row item])])]))
 
 (defn app []
-  (let [authenticated? @(rf/subscribe [::subs/authenticated?])]
-    [:main.shell
-     (if authenticated?
-       [todo-panel]
-       [auth-panel])]))
+  [:main.shell
+   (case @(rf/subscribe [::subs/screen])
+     :loading [loading-screen]
+     :todos [todos-screen]
+     [auth-screen])])

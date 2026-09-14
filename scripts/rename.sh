@@ -20,8 +20,8 @@ for f in $files; do
   case "$f" in
     *.png|*.ico|*.icns|*.jpg) continue ;;
   esac
-  perl -pi -e "s/\bapp\.(shared|api-sdk|ui|api|web|mobile)\b/${SLUG}.\1/g" "$f"
-  perl -pi -e "s/\bapp\/(shared|api-sdk|ui|api|web|mobile)\b/${SLUG}\/\1/g" "$f"
+  perl -pi -e "s/\bapp\.(shared|api-sdk|app|api|web|mobile)\b/${SLUG}.\1/g" "$f"
+  perl -pi -e "s/\bapp\/(shared|api-sdk|app|api|web|mobile)\b/${SLUG}\/\1/g" "$f"
   perl -pi -e "s/\bapp-(api|web|mobile|desktop)\b/${SLUG}-\1/g" "$f"
   perl -pi -e "s/com\.example\.app/com.example.${SLUG}/g" "$f"
 done

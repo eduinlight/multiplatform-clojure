@@ -29,21 +29,37 @@ The point of the template is that platform-specific code is a thin shell.
 
 ```
 packages/
-  shared/    .cljc  schemas, validation, routes, formatting   -> api + web + desktop + mobile
-  api-sdk/   .cljc  typed API client for the JVM and JavaScript    -> api tests + web + desktop + mobile
-  ui/        .cljs  re-frame db, events, effects, subscriptions  -> web + desktop + mobile
+  shared/    .cljc  schemas, validation, routes, formatting          -> api + web + desktop + mobile
+  api-sdk/   .cljc  typed API client for the JVM and JavaScript       -> api tests + web + desktop + mobile
+  app/       .cljs  the client app: state, events, screen view models,
+                    user-facing copy, startup                         -> web + desktop + mobile
 
 apps/
   api/       .clj   the only place that talks to MongoDB
-  web/       .cljs  Reagent views (hiccup + DOM)
-  mobile/    .cljs  Reagent views (React Native components)
+  web/       .cljs  DOM components, CSS, localStorage, React root
+  mobile/    .cljs  React Native components, styles, SecureStore, AppRegistry
   desktop/   rust   Tauri shell that renders the web build verbatim
 ```
 
-`apps/web/src/app/web/views.cljs` and `apps/mobile/src/app/mobile/views.cljs` are the
-*only* files that differ in behaviour between platforms. Both call the same
-`app.ui.events` and `app.ui.subs`. Add a feature once in `packages/ui` and it lands on
-every client.
+Web and mobile run the same application; they only differ in the components they render
+with. Everything else lives in `packages/app`:
+
+- **Startup.** `app.app.core/start!` installs the API client and a storage backend,
+  loads the saved session and boots. An app passes `{:storage {:get :set :del}}` (sync or
+  promise-returning) and mounts its root.
+- **Screens as data.** One subscription per screen returns everything the view shows:
+  `::subs/screen` (`:loading`, `:auth` or `:todos`), `::subs/auth-screen` (title, fields,
+  error, submit and switch labels) and `::subs/todos-screen` (user, summary, draft, list
+  state, items).
+- **Behaviour as events.** Form input, mode switching, submit (including double-submit
+  protection), todo create, toggle and delete, sign out.
+- **Copy.** Every string lives in `app.app.copy`, ready for translation.
+
+So `apps/web/src/app/web/views.cljs` and `apps/mobile/src/app/mobile/views.cljs` only map
+those view models to `[:input]` or `TextInput`, `[:button]` or `TouchableOpacity`. A new
+feature is built and tested once in `packages/app`; each app then adds components for it.
+The package's tests (`make app-test`) drive whole user flows headlessly — start, log in,
+create, toggle, delete, sign out — against an in-memory fake API.
 
 A worked example: `app.shared.format/summarize` computes the "3 of 5 tasks done" label.
 It is a `.cljc` file, so the API can use it in tests, the web renders it in a `<p>`, and
@@ -89,7 +105,7 @@ which reads method, path, auth requirement and request schemas from
 `app.shared.routes/endpoints`. A custom `:transport` function can be passed to
 `sdk/client` for tests or mocks.
 
-In re-frame, `packages/ui` exposes it as an effect:
+In re-frame, `packages/app` exposes it as an effect:
 
 ```clojure
 {:api/call {:op :todo/update
@@ -131,6 +147,7 @@ make api-repl          connect an nREPL to the running api
 make api-test          run the test suite against a throwaway database
 make api-image         build the production api image
 make sdk-test          api-sdk tests on the jvm and on node
+make app-test          shared app logic tests on node
 
 make web-dev           web watcher in the foreground
 make web-build         optimized web bundle
@@ -212,7 +229,7 @@ updates the bundle identifiers. Review with `git diff --stat`, then change
 ├── packages
 │   ├── shared       .cljc used by every target, including the JVM
 │   ├── api-sdk      typed API client, JVM (java.net.http) and JS (fetch)
-│   └── ui           re-frame state, events and subscriptions
+│   └── app          client app logic shared by web, desktop and mobile
 ├── scripts          seed and rename helpers
 ├── docker-compose.yml
 └── Makefile

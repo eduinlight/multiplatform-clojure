@@ -8,6 +8,6 @@
         metosin/reitit-frontend {:mvn/version "0.10.1"}
         app/shared {:local/root "../../packages/shared"}
         app/api-sdk {:local/root "../../packages/api-sdk"}
-        app/ui {:local/root "../../packages/ui"}}
+        app/app {:local/root "../../packages/app"}}
  :aliases
  {:web {:extra-paths ["src"]}}}
