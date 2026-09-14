@@ -26,4 +26,4 @@ COPY apps/web /workspace/apps/web
 
 EXPOSE 8280 9630 9631
 
-CMD ["npx", "shadow-cljs", "watch", "app"]
+CMD ["sh", "-c", "npm install --no-audit --no-fund && exec npx shadow-cljs watch app"]

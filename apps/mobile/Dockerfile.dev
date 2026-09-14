@@ -26,4 +26,4 @@ COPY apps/mobile /workspace/apps/mobile
 
 EXPOSE 8081 9632 19000
 
-CMD ["npx", "shadow-cljs", "watch", "app"]
+CMD ["sh", "-c", "rm -f /tmp/deps-ready && npm install --no-audit --no-fund && touch /tmp/deps-ready && exec npx shadow-cljs watch app"]

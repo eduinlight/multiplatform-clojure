@@ -76,6 +76,7 @@ make logs        tail everything
 make api-test    kaocha against a throwaway database
 make sdk-test    api-sdk tests on the jvm and on node
 make app-test    shared app logic flow tests on node
+make mobile-open-android   run the mobile app in expo go (emulator must be running)
 make lint fmt    clj-kondo and cljfmt
 make outdated    dependency report; make upgrade applies safe upgrades
 ```
@@ -107,7 +108,10 @@ after upgrading. Known constraints:
 
 ## Native builds
 
-Docker runs the ClojureScript compiler and Metro. The native link step needs host SDKs:
+Docker runs the ClojureScript compiler (`mobile`) and the Expo dev server (`metro`); both
+reach the device through `MOBILE_DEV_HOST` (default `localhost` plus `adb reverse`). The
+containers run `npm install` on start because named `node_modules` volumes never refresh
+from the image. The native link step needs host SDKs:
 `make mobile-ios` (Xcode), `make mobile-android` (Android SDK), `make desktop-bundle`
 (Rust). CI builds the three desktop targets on separate runners because Tauri cannot
 cross-compile them.

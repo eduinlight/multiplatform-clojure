@@ -85,18 +85,47 @@ services:
       dockerfile: apps/mobile/Dockerfile.dev
     restart: unless-stopped
     ports:
-      - "${MOBILE_METRO_PORT:-8081}:8081"
       - "${MOBILE_NREPL_PORT:-9632}:9632"
-      - "${EXPO_DEVTOOLS_PORT:-19000}:19000"
+      - "${MOBILE_SHADOW_PORT:-9633}:9633"
     environment:
-      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
-      EXPO_NO_TELEMETRY: "1"
+      API_BASE_URL: http://${MOBILE_DEV_HOST:-localhost}:${API_PORT:-8080}
+      MOBILE_DEV_HOST: ${MOBILE_DEV_HOST:-localhost}
     volumes:
       - ./apps/mobile:/workspace/apps/mobile
       - ./packages:/workspace/packages
       - mobile_node_modules:/workspace/apps/mobile/node_modules
       - maven_cache:/root/.m2
       - gitlibs_cache:/root/.gitlibs
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/deps-ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 120
+
+  metro:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      mobile:
+        condition: service_healthy
+    command: ["npx", "expo", "start", "--port", "8081"]
+    ports:
+      - "${MOBILE_METRO_PORT:-8081}:8081"
+    environment:
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${MOBILE_DEV_HOST:-localhost}
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_UNSTABLE_HEADLESS: "1"
+    volumes:
+      - ./apps/mobile:/workspace/apps/mobile
+      - ./packages:/workspace/packages
+      - mobile_node_modules:/workspace/apps/mobile/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
 
 volumes:
   mongo_data:

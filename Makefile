@@ -17,7 +17,7 @@ MONGOSH := $(COMPOSE) exec -T mongo mongosh --quiet -u $(MONGO_ROOT_USERNAME) -p
 .PHONY: help env install uninstall reinstall up down restart logs ps \
 	api-dev api-repl api-test api-build api-image sdk-test app-test \
 	web-dev web-repl web-build \
-	mobile-dev mobile-repl mobile-prebuild mobile-android mobile-ios mobile-build \
+	mobile-dev mobile-repl mobile-open-android mobile-open-ios mobile-prebuild mobile-android mobile-ios mobile-build \
 	desktop-dev desktop-build desktop-bundle \
 	mongo-shell mongo-drop seed \
 	lint fmt fmt-check test outdated upgrade clean rename
@@ -38,7 +38,7 @@ install: env up seed ## bootstrap the whole dev environment
 	@echo "    web            http://localhost:$(WEB_PORT)"
 	@echo "    mongo-express  http://localhost:$(MONGO_EXPRESS_PORT)"
 	@echo ""
-	@echo "next:  make desktop-dev   |   make mobile-ios   |   make mobile-android"
+	@echo "next:  make mobile-open-android   |   make mobile-open-ios   |   make desktop-dev"
 
 uninstall: ## stop everything and delete volumes
 	$(COMPOSE) down -v --remove-orphans
@@ -46,7 +46,7 @@ uninstall: ## stop everything and delete volumes
 reinstall: uninstall install ## rebuild from scratch
 
 up: env ## start all containers
-	$(COMPOSE) up -d --build --wait mongo mongo-express api web mobile
+	$(COMPOSE) up -d --build --wait mongo mongo-express api web mobile metro
 
 down: ## stop all containers
 	$(COMPOSE) down
@@ -99,8 +99,17 @@ web-repl: ## connect a cljs repl to the web build
 web-build: ## produce an optimized web bundle
 	$(COMPOSE) run --rm -e API_BASE_URL=$(API_BASE_URL) web npx shadow-cljs release app
 
-mobile-dev: env ## run the shadow-cljs watcher for mobile
-	$(COMPOSE) up --build mobile
+mobile-dev: env ## run the mobile compiler and metro in the foreground
+	$(COMPOSE) up --build mobile metro
+
+mobile-open-android: ## open the dev app in expo go on the running android emulator
+	adb reverse tcp:$${MOBILE_METRO_PORT:-8081} tcp:$${MOBILE_METRO_PORT:-8081}
+	adb reverse tcp:$${MOBILE_SHADOW_PORT:-9633} tcp:$${MOBILE_SHADOW_PORT:-9633}
+	adb reverse tcp:$(API_PORT) tcp:$(API_PORT)
+	adb shell am start -a android.intent.action.VIEW -d exp://localhost:$${MOBILE_METRO_PORT:-8081}
+
+mobile-open-ios: ## open the dev app in expo go on the booted ios simulator
+	xcrun simctl openurl booted exp://localhost:$${MOBILE_METRO_PORT:-8081}
 
 mobile-repl: ## connect a cljs repl to the mobile build
 	$(COMPOSE) exec mobile npx shadow-cljs cljs-repl app
@@ -108,11 +117,13 @@ mobile-repl: ## connect a cljs repl to the mobile build
 mobile-prebuild: ## generate native ios/android projects on the host
 	cd apps/mobile && npm install && npx expo prebuild --clean
 
-mobile-android: ## build and run on android (needs host sdk)
-	cd apps/mobile && npx expo run:android
+mobile-android: ## build and install a native dev build on android (needs host sdk)
+	adb reverse tcp:$${MOBILE_SHADOW_PORT:-9633} tcp:$${MOBILE_SHADOW_PORT:-9633}
+	adb reverse tcp:$(API_PORT) tcp:$(API_PORT)
+	cd apps/mobile && npx expo run:android --no-bundler
 
-mobile-ios: ## build and run on ios (needs host xcode, macos only)
-	cd apps/mobile && npx expo run:ios
+mobile-ios: ## build and install a native dev build on ios (needs host xcode, macos only)
+	cd apps/mobile && npx expo run:ios --no-bundler
 
 mobile-build: ## produce an optimized mobile bundle
 	$(COMPOSE) run --rm mobile npx shadow-cljs release app

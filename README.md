@@ -19,6 +19,7 @@ mobile bundler, then seeds a demo account.
 | mongo-express | http://localhost:8082 | database browser |
 | API nREPL | `localhost:7888` | `make api-repl` |
 | Web nREPL | `localhost:9630` | `make web-repl` |
+| Metro (Expo dev server) | `localhost:8081` | `make mobile-open-android` |
 | Mobile nREPL | `localhost:9632` | `make mobile-repl` |
 
 Demo account: `demo@example.com` / `demo12345`
@@ -131,8 +132,41 @@ Docker is enough for the API, web and mobile bundler. Native builds need host to
 - **iOS**: macOS with Xcode 26.4+ (iOS 16.4+ devices).
 
 Metro and the ClojureScript compiler run in Docker; the native compile/link step cannot,
-because it needs the platform SDKs. `make mobile-dev` keeps the bundler in a container and
-`make mobile-ios` / `make mobile-android` drive the host toolchain against it.
+because it needs the platform SDKs.
+
+## Mobile development
+
+`make install` (or `make up`) starts two mobile containers: `mobile` compiles the
+ClojureScript and pushes code changes to the running app, and `metro` is the Expo dev
+server that serves the JavaScript bundle. Nothing native is needed to develop against
+[Expo Go](https://expo.dev/go):
+
+**Android emulator**
+
+1. Start an emulator (Android Studio → Device Manager) and install Expo Go on it.
+2. `make mobile-open-android`
+
+It forwards the Metro (8081), live-reload (9633) and API (8080) ports into the emulator
+with `adb reverse`, so the app reaches everything at `localhost`, then opens
+`exp://localhost:8081` in Expo Go. Run it again after restarting the emulator.
+
+**iOS simulator**
+
+1. Boot a simulator with Expo Go installed.
+2. `make mobile-open-ios` (the simulator shares your Mac's `localhost`).
+
+**Physical phone**
+
+Set `MOBILE_DEV_HOST` in `.env` to your computer's LAN IP, run `make up`, and open
+`exp://<that-ip>:8081` in Expo Go on the same network.
+
+Save any `.cljs` file under `packages/app` or `apps/mobile` and the app updates in place
+within a few seconds, keeping its state. `make logs` shows app `console.log` output from the
+`metro` container, and `make mobile-repl` gives a REPL into the running app.
+
+Expo Go covers everything the template uses. Once you add a native module Expo Go does not
+ship, switch to a development build: `make mobile-android` / `make mobile-ios` compile and
+install your own app on the device and use the same `metro` container.
 
 ## Commands
 
@@ -153,10 +187,12 @@ make web-dev           web watcher in the foreground
 make web-build         optimized web bundle
 make web-repl          browser-connected cljs repl
 
-make mobile-dev        mobile bundler in the foreground
+make mobile-dev        mobile compiler and metro in the foreground
+make mobile-open-android  open the app in expo go on the android emulator
+make mobile-open-ios   open the app in expo go on the ios simulator
 make mobile-prebuild   generate native ios/android projects
-make mobile-ios        build and run on ios
-make mobile-android    build and run on android
+make mobile-ios        build and install a native dev build on ios
+make mobile-android    build and install a native dev build on android
 
 make desktop-dev       tauri window against the web dev server
 make desktop-bundle    installers for the current host

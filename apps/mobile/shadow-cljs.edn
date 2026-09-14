@@ -2,6 +2,7 @@
 
  :nrepl {:port 9632}
  :http {:port 9633 :host "0.0.0.0"}
+ :local-ip #shadow/env ["MOBILE_DEV_HOST" :default "localhost"]
 
  :builds
  {:app
