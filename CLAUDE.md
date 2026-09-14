@@ -65,6 +65,7 @@ make logs        tail everything
 make api-test    kaocha against a throwaway database
 make sdk-test    api-sdk tests on the jvm and on node
 make lint fmt    clj-kondo and cljfmt
+make outdated    dependency report; make upgrade applies safe upgrades
 ```
 
 REPL-driven work: `make api-repl` (7888), `make web-repl` (9630),
@@ -75,6 +76,22 @@ server via `apps/api/dev/dev_main.clj`; `apps/api/dev/user.clj` gives you
 Requires in `dev_main.clj`, `user.clj`, `app.api.main` and `app.api.fixtures` look
 unused but load Integrant `defmethod`s — clj-kondo is configured to allow this in
 `.clj-kondo/config.edn`. Do not delete them.
+
+## Dependencies
+
+Keep everything on current stable versions. Look versions up live (`make outdated`,
+`npm view`, crates.io, Docker Hub), never from memory, and verify with the full suite
+after upgrading. Known constraints:
+
+- MongoDB is pinned to `mongo:8.2`: 8.0 and 8.3 exit on Linux kernel 6.19+
+  (SERVER-121912). Re-check when a newer 8.x ships before moving the pin.
+  Upgrading an existing dev volume across majors needs dump and restore.
+- `apps/mobile`: upgrade `expo` only, then `npx expo install --fix`. Do not add a
+  `babel.config.js` unless you also add `babel-preset-expo` as a devDependency; SDK 57
+  does not hoist it.
+- `apps/desktop/src-tauri`: `rust-version` must be at least the highest `rust_version`
+  in `Cargo.lock`. With edition 2024 the resolver is MSRV-aware, so a lower value makes
+  `cargo update` silently downgrade crates.
 
 ## Native builds
 

@@ -1,6 +1,7 @@
 (ns app.mobile.core
   (:require ["expo-secure-store" :as secure-store]
             ["react-native" :as rn]
+            ["react-native-safe-area-context" :as safe-area-context]
             [app.mobile.views :as views]
             [app.ui.api :as api]
             [app.ui.events :as events]
@@ -22,7 +23,7 @@
           (.deleteItemAsync secure-store k))})
 
 (defn- root []
-  (r/as-element [views/app]))
+  (r/as-element [:> safe-area-context/SafeAreaProvider [views/app]]))
 
 (defn ^:dev/after-load reload! []
   (rf/clear-subscription-cache!))

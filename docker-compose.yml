@@ -2,7 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-app}
 
 services:
   mongo:
-    image: mongo:7
+    image: mongo:8.2
     restart: unless-stopped
     ports:
       - "${MONGO_PORT:-27017}:27017"

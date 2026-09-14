@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["deps-edn", "npm", "cargo", "dockerfile", "docker-compose", "github-actions"],
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "Group Clojure dependencies into one weekly PR",
+      "matchManagers": ["deps-edn"],
+      "groupName": "clojure dependencies"
+    },
+    {
+      "description": "Expo owns React Native versions; upgrade via expo and then run npx expo install --fix",
+      "matchFileNames": ["apps/mobile/package.json"],
+      "matchPackageNames": ["react", "react-dom", "react-native", "react-native-*", "expo-*", "@babel/core"],
+      "enabled": false
+    },
+    {
+      "description": "MongoDB 8.0 and 8.3 refuse to start on Linux kernel 6.19+ (SERVER-121912); 8.2 is the newest that runs under current Docker Desktop",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mongo"],
+      "allowedVersions": "<=8.2"
+    },
+    {
+      "description": "Stay on Babel 7 until babel-preset-expo supports Babel 8",
+      "matchPackageNames": ["@babel/core"],
+      "allowedVersions": "<8"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-FROM clojure:temurin-21-tools-deps-bookworm AS build
+FROM clojure:temurin-25-tools-deps-trixie AS build
 
 WORKDIR /workspace/apps/api
 
@@ -11,7 +11,7 @@ COPY apps/api /workspace/apps/api
 
 RUN clojure -T:build uber
 
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-noble AS runtime
 
 RUN useradd --system --create-home --uid 10001 app \
   && apt-get update \

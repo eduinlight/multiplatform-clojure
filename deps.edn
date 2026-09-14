@@ -5,9 +5,9 @@
   :shared {:extra-deps {app/shared {:local/root "packages/shared"}}}
   :api-sdk {:extra-deps {app/api-sdk {:local/root "packages/api-sdk"}}}
   :ui {:extra-deps {app/ui {:local/root "packages/ui"}}}
-  :outdated {:replace-deps {com.github.liquidz/antq {:mvn/version "2.11.1250"}}
+  :outdated {:replace-deps {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
              :main-opts ["-m" "antq.core"]}
-  :kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
+  :kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}
           :main-opts ["-m" "clj-kondo.main"]}
-  :cljfmt {:replace-deps {dev.weavejester/cljfmt {:mvn/version "0.13.0"}}
+  :cljfmt {:replace-deps {dev.weavejester/cljfmt {:mvn/version "0.16.5"}}
            :main-opts ["-m" "cljfmt.main"]}}}

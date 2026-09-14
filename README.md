@@ -108,10 +108,11 @@ the client and API cannot drift apart.
 
 Docker is enough for the API, web and mobile bundler. Native builds need host tooling:
 
-- **Desktop**: Rust toolchain. Linux also needs `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`,
+- **Desktop**: Rust 1.88+. Linux also needs `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`,
   `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf`.
-- **Android**: Android SDK + JDK 17.
-- **iOS**: macOS with Xcode.
+- **Android**: Android SDK (compileSdk 36, Android 7+ devices) and JDK 17–21; Android
+  Studio's bundled JDK works.
+- **iOS**: macOS with Xcode 26.4+ (iOS 16.4+ devices).
 
 Metro and the ClojureScript compiler run in Docker; the native compile/link step cannot,
 because it needs the platform SDKs. `make mobile-dev` keeps the bundler in a container and
@@ -144,8 +145,39 @@ make desktop-dev       tauri window against the web dev server
 make desktop-bundle    installers for the current host
 
 make lint fmt test     clj-kondo, cljfmt, kaocha
+make outdated          report outdated dependencies everywhere
+make upgrade           apply safe dependency upgrades
 make rename NAME=acme  rename the template's namespaces
 ```
+
+## Versions
+
+The template tracks current stable releases.
+
+| Layer | Version |
+|---|---|
+| JVM (dev images, production image, CI) | Java 25 LTS (Temurin) |
+| Clojure / ClojureScript | 1.12.6 / 1.12.145 |
+| shadow-cljs | 3.5.1 |
+| Reagent / re-frame | 2.0.1 / 1.4.7 |
+| React (web) | 19.3 |
+| Expo / React Native / React (mobile) | SDK 57 / 0.86.3 / 19.2.3 |
+| Tauri | 2.11 |
+| Node | 24 LTS |
+| MongoDB | 8.2 |
+
+`make outdated` reports what is behind across Clojure, npm, Expo, Cargo and GitHub
+Actions. `make upgrade` applies the safe upgrades and prints the manual steps for the
+rest. `renovate.json` opens weekly update PRs once the
+[Renovate app](https://github.com/apps/renovate) is installed on the repository.
+
+Deliberate holds, all encoded in `renovate.json`:
+
+- **MongoDB 8.2**, not `8`/latest: 8.0 and 8.3 refuse to start on Linux kernel 6.19+
+  (SERVER-121912), which is what current Docker Desktop runs.
+- **Mobile React / React Native versions are owned by Expo.** Bump `expo`, then run
+  `npx expo install --fix`; never bump `react-native` on its own.
+- **Babel 7** on mobile until `babel-preset-expo` supports Babel 8.
 
 ## Desktop strategy
 

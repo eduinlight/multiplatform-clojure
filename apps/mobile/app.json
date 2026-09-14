@@ -16,6 +16,9 @@
         "backgroundColor": "#0f1115"
       }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar"
+    ]
   }
 }

@@ -1,4 +1,4 @@
-FROM clojure:temurin-21-tools-deps-bookworm
+FROM clojure:temurin-25-tools-deps-trixie
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl rlwrap \

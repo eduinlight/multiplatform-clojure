@@ -1,5 +1,6 @@
 (ns app.mobile.views
   (:require ["react-native" :as rn]
+            ["react-native-safe-area-context" :as safe-area-context]
             [app.ui.events :as events]
             [app.ui.subs :as subs]
             [re-frame.core :as rf]
@@ -10,7 +11,7 @@
 (def text-input (r/adapt-react-class rn/TextInput))
 (def touchable (r/adapt-react-class rn/TouchableOpacity))
 (def flat-list (r/adapt-react-class rn/FlatList))
-(def safe-area (r/adapt-react-class rn/SafeAreaView))
+(def safe-area (r/adapt-react-class safe-area-context/SafeAreaView))
 (def switch-input (r/adapt-react-class rn/Switch))
 
 (def styles

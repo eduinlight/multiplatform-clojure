@@ -30,3 +30,5 @@ apps/desktop/src-tauri/gen/
 /dist
 *.log
 apps/api/target/
+apps/mobile/android/
+apps/mobile/ios/

@@ -20,7 +20,7 @@ MONGOSH := $(COMPOSE) exec -T mongo mongosh --quiet -u $(MONGO_ROOT_USERNAME) -p
 	mobile-dev mobile-repl mobile-prebuild mobile-android mobile-ios mobile-build \
 	desktop-dev desktop-build desktop-bundle \
 	mongo-shell mongo-drop seed \
-	lint fmt fmt-check test outdated clean rename
+	lint fmt fmt-check test outdated upgrade clean rename
 
 help:
 	@echo "multiplatform-clojure"
@@ -144,8 +144,26 @@ fmt-check: ## verify formatting
 
 test: sdk-test api-test ## run the full test suite
 
-outdated: ## report outdated dependencies
-	clojure -M:outdated --directory=apps/api --directory=apps/web --directory=apps/mobile --directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
+outdated: ## report outdated clojure, npm, expo, cargo and github actions versions
+	-clojure -M:outdated --skip=pom --exclude=dtolnay/rust-toolchain \
+		--directory=. --directory=apps/api --directory=apps/web --directory=apps/mobile \
+		--directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
+	-cd apps/web && npm outdated
+	-cd apps/desktop && npm outdated
+	-cd apps/mobile && npx expo install --check
+	-cd apps/desktop/src-tauri && cargo update --dry-run
+
+upgrade: ## upgrade clojure deps and actions, align expo, refresh cargo lock
+	clojure -M:outdated --skip=pom --exclude=dtolnay/rust-toolchain --upgrade --force \
+		--directory=. --directory=apps/api --directory=apps/web --directory=apps/mobile \
+		--directory=packages/shared --directory=packages/ui --directory=packages/api-sdk
+	cd apps/mobile && npx expo install --fix
+	cd apps/desktop/src-tauri && cargo update
+	@echo ""
+	@echo "npm majors and docker base images are not bumped automatically:"
+	@echo "    cd apps/web && npx npm-check-updates -u && npm install"
+	@echo "    cd apps/desktop && npx npm-check-updates -u && npm install"
+	@echo "    review FROM lines in apps/*/Dockerfile* and images in docker-compose.yml"
 
 clean: ## remove build artifacts
 	rm -rf apps/web/public/js apps/mobile/app apps/desktop/src-tauri/target
